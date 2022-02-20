@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -39,6 +40,14 @@ public class Server {
             f.setWritable(true);
         } catch (IOException e) {
         }
+    }
+
+    //Metodo en prueba
+    public static void mandarData(ObjectOutputStream oos, File[] archivos) throws IOException {
+        Data d = new Data(Data.OP_MOSTRAR_ARCHIVOS_DRIVE, archivos);
+
+        oos.writeObject(d);
+        oos.flush();
     }
 
     public void recibirArchivos(int numArchivos) throws IOException {
@@ -103,38 +112,42 @@ public class Server {
 
             while (true) {
                 //Se conecta cliente al servidor
+                System.out.println("Servidor en espera de cliente...");
                 Socket cl = servidor.s.accept();
+                ObjectInputStream ois = new ObjectInputStream(cl.getInputStream());
+                ObjectOutputStream oos = new ObjectOutputStream(cl.getOutputStream());
+
                 System.out.println("Cliente conectado desde " + cl.getInetAddress() + ":" + cl.getPort());
 
-                //Se recibe objeto de tipo Data con la informacion sobre la operacion a realizar
-                ObjectInputStream ois = new ObjectInputStream(cl.getInputStream());
-                Data info = (Data) ois.readObject();
+                while (!cl.isClosed()) {
+                    //Se recibe objeto de tipo Data con la informacion sobre la operacion a realizar
+                    Data info = (Data) ois.readObject();
 
-                System.out.println("Opcion recibida: " + info.getOpcion());
-                //Seleccion de operacion
-                switch (info.getOpcion()) {
-                    case Data.OP_SUBIR_ARCHIVOS:
-                        dataTransfer.recibirArchivos(info.getNumArchivos());
-                        break;
-                    case Data.OP_MOSTRAR_ARCHIVOS_LOCAL:
-                        /*Falta implementar*/
-                        break;
-                    case Data.OP_MOSTRAR_ARCHIVOS_DRIVE:
-                        /*Falta implementar*/
-                        break;
-                    case Data.OP_BORRAR_ARCHIVOS_LOCAL:
-                        /*Falta implementar*/
-                        break;
-                    case Data.OP_BORRAR_ARCHIVOS_DRIVE:
-                        /*Falta implementar*/
-                        break;
-                    default:
-                        System.out.println("Error: Operacion no soportada");
-                        break;
+                    System.out.println("Opcion recibida: " + info.getOpcion());
+                    //Seleccion de operacion
+                    switch (info.getOpcion()) {
+                        case Data.OP_SUBIR_ARCHIVOS:
+                            dataTransfer.recibirArchivos(info.getNumArchivos());
+                            break;
+                        case Data.OP_MOSTRAR_ARCHIVOS_DRIVE:
+                            File[] archivos = servidor.f.listFiles();
+                            mandarData(oos, archivos);
+                            break;
+                        case Data.OP_BORRAR_ARCHIVOS_DRIVE:
+                            /*Falta implementar*/
+                            break;
+                        case Data.OP_CIERRE_CONEXION:
+                            System.out.println("\nCliente " + cl.getInetAddress() + ":" + cl.getPort() + " desconectado\n");
+                            cl.close();
+                            break;
+                        default:
+                            System.out.println("Error: Operacion no soportada");
+                            break;
+                    }
                 }
-
             }
         } catch (IOException ex) {
+            ex.printStackTrace();
         }
     }
 }

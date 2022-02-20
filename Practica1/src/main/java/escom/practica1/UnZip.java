@@ -10,14 +10,6 @@ import java.util.zip.ZipInputStream;
 
 public class UnZip {
 
-    private static final String INPUT_ZIP_FILE = "C:\\Users\\Betuc\\Documents\\ERDE.zip";
-    private static final String OUTPUT_FOLDER = "C:\\Users\\Betuc\\Documents\\ERDE_UnZip";
-
-    /*public static void main(String[] args) throws IOException {
-        UnZip unZipDemo = new UnZip();
-        unZipDemo.unZip(INPUT_ZIP_FILE, OUTPUT_FOLDER);
-    }*/
-
     public void descomprimirZip(String ArchivoZip, String directorioSalida) throws IOException {
 
         crearDirectorio(directorioSalida);

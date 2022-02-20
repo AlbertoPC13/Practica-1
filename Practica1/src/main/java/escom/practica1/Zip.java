@@ -20,11 +20,6 @@ public class Zip {
         this.directorio = directorio;
     }
 
-    /*public static void main(String[] args) throws IOException {
-        Zip zipDemo = new Zip();
-        zipDemo.generateFileList(new File(SOURCE_FOLDER));
-        zipDemo.zipIt(OUTPUT_ZIP_FILE);
-    }*/
     public void generarZip(String zipFile) throws IOException {
 
         byte[] buffer = new byte[1024];

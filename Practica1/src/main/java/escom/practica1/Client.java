@@ -9,10 +9,11 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Scanner;
 import javax.swing.JFileChooser;
 
 /**
@@ -44,9 +45,15 @@ public class Client {
         }
     }
 
-    public static File[] seleccionarArchivos() {
+    public File[] seleccionarArchivos(boolean mode) {
 
-        JFileChooser jf = new JFileChooser();
+        JFileChooser jf;
+        if (mode) {
+            jf = new JFileChooser(rutaArchivo);
+        } else {
+            jf = new JFileChooser();
+        }
+
         jf.setMultiSelectionEnabled(true);
         jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
 
@@ -56,27 +63,97 @@ public class Client {
         return jf.getSelectedFiles();
     }
 
-    //Metodo en prueba
-    public void mandarData(ObjectOutputStream oos, int numArchivos) throws IOException {
+    public static void mandarData(ObjectOutputStream oos, int numArchivos) throws IOException {
         Data d = new Data(Data.OP_SUBIR_ARCHIVOS, numArchivos);
 
         oos.writeObject(d);
         oos.flush();
-        oos.reset();
     }
 
-    //Metodo en prueba
-    public void mandarData(ObjectOutputStream oos, ArrayList<String> archivos) throws IOException {
+    public static void mandarData(ObjectOutputStream oos, File[] archivos) throws IOException {
         Data d = new Data(Data.OP_SUBIR_ARCHIVOS, archivos);
 
         oos.writeObject(d);
         oos.flush();
-        oos.reset();
+    }
+
+    public static void mandarData(ObjectOutputStream oos, int operacion, boolean fg) throws IOException {
+
+        Data d;
+
+        switch (operacion) {
+            case Data.OP_CIERRE_CONEXION:
+                d = new Data(Data.OP_CIERRE_CONEXION);
+                break;
+            case Data.OP_MOSTRAR_ARCHIVOS_DRIVE:
+                d = new Data(Data.OP_MOSTRAR_ARCHIVOS_DRIVE);
+                break;
+            default:
+                throw new AssertionError();
+        }
+
+        oos.writeObject(d);
+        oos.flush();
+    }
+
+    public void mostrarArchivos() {
+        File local = new File(rutaArchivo);
+        System.out.println("\nContenido del directorio local: \n");
+
+        for (File f : local.listFiles()) {
+            if (f.isDirectory()) {
+                System.out.println("\\" + f.getName());
+            } else {
+                System.out.println(f.getName());
+            }
+        }
+        System.out.print("\n\n");
+    }
+
+    public static void mostrarArchivosDrive(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+        Data info = (Data) ois.readObject();
+
+        System.out.println("\nContenido del directorio remoto: \n");
+
+        for (File f : info.getArchivos()) {
+            if (f.isDirectory()) {
+                System.out.println("\\" + f.getName());
+            } else {
+                System.out.println(f.getName());
+            }
+        }
+        System.out.print("\n\n");
+    }
+
+    public void borrarArchivos(File[] selected) {
+
+        if (selected.length > 0) {
+            System.out.println("Eliminando archivos\n");
+            for (File f : selected) {
+                System.out.println(f.getName() + " eliminado");
+                if (f.isDirectory()) {
+                    borrarDirectorio(f);
+                }
+                f.delete();
+            }
+            System.out.println("\n\n");
+        }
+    }
+
+    public static void borrarDirectorio(File directorio) {
+
+        File[] archivos = directorio.listFiles();
+
+        for (File f : archivos) {
+            if (f.isDirectory()) {
+                borrarDirectorio(f);
+            }
+            f.delete();
+        }
     }
 
     public static void enviarArchivos(File[] selected) throws IOException {
 
-        //File[] selected = jf.getSelectedFiles();
         HashSet<File> archivos = new HashSet<>();
         HashSet<File> archivosZip = new HashSet<>();
 
@@ -90,17 +167,11 @@ public class Client {
                 comZip.generarZip(zipPath);
                 File zipFile = new File(zipPath);
 
-                //System.out.println("Nombre del directorio: " + f.getName());
                 archivos.add(zipFile);
                 archivosZip.add(zipFile);
 
             } else {
                 archivos.add(f);
-
-                /*System.out.println("Nombre de archivo: " + f.getName());
-                String[] nombreArchivo = f.getName().split("\\.");
-                String extension = nombreArchivo[nombreArchivo.length - 1];
-                System.out.println("Extension de archivo: " + extension);*/
             }
         }
 
@@ -146,51 +217,57 @@ public class Client {
     public static void main(String[] args) throws ClassNotFoundException {
         try {
             Client cl = new Client(puertoServidor);
+            ObjectOutputStream oos = new ObjectOutputStream(cl.s.getOutputStream());
+            ObjectInputStream ois = new ObjectInputStream(cl.s.getInputStream());
+
             System.out.println("Conexion establecida con el servidor...\n\n");
 
-            for (int i = 0; i < 3; i++) {
+            //Prueba: En consola se usaria Scanner para obtener la opcion
+            Scanner inputScanner = new Scanner(System.in);
+            int opcion;
 
-                //Prueba: En consola se usaria Scanner para obtener la opcion
-                int opcion = Data.OP_SUBIR_ARCHIVOS;
+            do {
+                System.out.println("Ingresa operacion a realizar: ");
+                opcion = inputScanner.nextInt();
 
                 //Seleccion de operacion
                 switch (opcion) {
                     case Data.OP_SUBIR_ARCHIVOS: {
-                        ObjectOutputStream oos = new ObjectOutputStream(cl.s.getOutputStream());
-
-                        File[] selected = seleccionarArchivos();
-                        
-                        Data d = new Data(Data.OP_SUBIR_ARCHIVOS, selected.length);
-
-                        oos.writeObject(d);
-                        oos.flush();
-                        
-                        //cl.mandarData(oos, selected.length);
+                        File[] selected = cl.seleccionarArchivos(false);
+                        mandarData(oos, selected.length);
                         enviarArchivos(selected);
                         break;
                     }
                     case Data.OP_MOSTRAR_ARCHIVOS_LOCAL:
-                        /*Falta implementar*/
+                        cl.mostrarArchivos();
                         break;
-                    case Data.OP_MOSTRAR_ARCHIVOS_DRIVE:
-                        /*Falta implementar*/
+                    case Data.OP_MOSTRAR_ARCHIVOS_DRIVE: {
+                        mandarData(oos, Data.OP_MOSTRAR_ARCHIVOS_DRIVE, true);
+                        mostrarArchivosDrive(ois);
                         break;
-                    case Data.OP_BORRAR_ARCHIVOS_LOCAL:
-                        /*Falta implementar*/
+                    }
+                    case Data.OP_BORRAR_ARCHIVOS_LOCAL: {
+                        File[] selected = cl.seleccionarArchivos(true);
+                        cl.borrarArchivos(selected);
                         break;
+                    }
                     case Data.OP_BORRAR_ARCHIVOS_DRIVE:
                         /*Falta implementar*/
                         break;
+                    case Data.OP_DESCARGAR_ARCHIVOS:
+                        /*Falta implementar*/
+                        break;
+                    case Data.OP_CIERRE_CONEXION: {
+                        mandarData(oos, Data.OP_CIERRE_CONEXION, true);
+                        System.out.println("Desconectando del servidor...");
+                        cl.s.close();
+                        break;
+                    }
                     default:
                         System.out.println("Error: Operacion no soportada");
                         break;
                 }
-                //Delay para prueba
-                try {
-                    Thread.currentThread().sleep(3000);
-                } catch (InterruptedException ex) {
-                }
-            }
+            } while (opcion != Data.OP_CIERRE_CONEXION);
         } catch (IOException ex) {
         }
     }
